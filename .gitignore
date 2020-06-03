@@ -66,3 +66,7 @@ node_modules/
 
 # json
 serviceAccountKey.json
+
+# others
+.eslintrc.json
+package-lock.json
