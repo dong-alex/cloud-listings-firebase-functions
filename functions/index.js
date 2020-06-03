@@ -1,12 +1,27 @@
 const functions = require("firebase-functions");
+<<<<<<< HEAD
+=======
+const FBAuth = require("./utils/fbAuth");
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
 const cors = require("cors");
 const { firebase, db, admin } = require("./utils/admin");
 
 const express = require("express");
-const app = express();
+const scrapeListings = require("./utils/scrapper");
+const deleteQueryBatch = require("./utils/deleteQueryBatch");
+const { db, admin } = require("./utils/admin");
+const { login, signup, logout } = require("./handlers/user");
+const { getUserListings, refreshUserListings } = require("./handlers/listings");
+const {
+  getUserWatchlistItems,
+  deleteUserWatchlistItem,
+  addUserWatchlistItem,
+} = require("./handlers/watchlist");
 
+const app = express();
 app.use(cors());
 
+<<<<<<< HEAD
 const FBAuth = async (req, res, next) => {
   let idToken;
   if (
@@ -256,6 +271,22 @@ app.get("/logout", async (req, res) => {
     });
 });
 // if you add a watchlist item - then automatically query for the front page listings
+=======
+// listing items
+app.get("/listings", FBAuth, getUserListings);
+app.get("/refreshListings", FBAuth, refreshUserListings);
+
+// watchlist items
+app.delete("/watchlist/:watchlistId", FBAuth, deleteUserWatchlistItem);
+app.get("/watchlist", FBAuth, getUserWatchlistItems);
+app.post("/watchlist", FBAuth, addUserWatchlistItem);
+
+// users
+app.post("/signup", signup);
+app.get("/login", login);
+app.get("/logout", logout);
+
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
 exports.fetchListings = functions.firestore
   .document("watchlist/{watchlistId}")
   .onCreate(async (snapshot, context) => {
@@ -268,7 +299,13 @@ exports.fetchListings = functions.firestore
 
     try {
       await scrapeListings(data, userId);
+<<<<<<< HEAD
       console.log("Succesfully obtained listings for the new watchlist item");
+=======
+      console.log(
+        "Succesfully obtained listings for the new watchlist item"
+      );
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
       return;
     } catch (err) {
       console.log("There is an error in the fetchListings listener");
@@ -308,7 +345,13 @@ exports.deleteRecords = functions.firestore
     try {
       await admin.auth().deleteUser(userId);
     } catch (err) {
+<<<<<<< HEAD
       console.log("There was an error deleting the user. Please try again.");
+=======
+      console.log(
+        "There was an error deleting the user. Please try again."
+      );
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
       console.log(err);
       return;
     }
@@ -367,6 +410,7 @@ exports.deleteAllListings = functions
       return res.status(400).send("There was an error with the deletion");
     }
   });
+<<<<<<< HEAD
 
 const deleteQueryBatch = (query, resolve, reject) => {
   query
@@ -400,6 +444,8 @@ const deleteQueryBatch = (query, resolve, reject) => {
     })
     .catch(reject);
 };
+=======
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
 
 exports.api = functions.region("us-central1").https.onRequest(app);
 

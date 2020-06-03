@@ -1,5 +1,9 @@
 const puppeteer = require("puppeteer");
+<<<<<<< HEAD
 const { db } = require("./admin");
+=======
+const { db } = require("../utils/admin");
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
 
 exports.scrapeListings = async (watchlist, userId) => {
   // grab all the listings based on the url
@@ -145,10 +149,15 @@ exports.scrapeListings = async (watchlist, userId) => {
   }
   /* eslint-enable no-await-in-loop */
   await browser.close();
+<<<<<<< HEAD
 
   // return the results but also store it into the database
   console.log("Attempting to batch writes");
   return batch.commit().then(() => {
     return allResults;
   });
+=======
+  await batch.commit();
+  return allResults;
+>>>>>>> 3344e1612a233abbdc011cf38a2d28732c9b8b60
 };
