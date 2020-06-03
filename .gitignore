@@ -70,3 +70,4 @@ serviceAccountKey.json
 # others
 .eslintrc.json
 package-lock.json
+config.js
