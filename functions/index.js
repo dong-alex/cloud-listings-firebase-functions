@@ -3,37 +3,38 @@ const cors = require("cors");
 
 const express = require("express");
 const scrapeListings = require("./utils/scrapper");
-const { db, admin } = require("./utils/admin");
+const { firebase, db, admin } = require("./utils/admin");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true }));
 
 const FBAuth = async (req, res, next) => {
+	console.log("Authenticating request");
+	// console.log(req.headers.authorization);
+	// console.log(req.headers);
 	let idToken;
 	if (
 		req.headers.authorization &&
 		req.headers.authorization.startsWith("Bearer ")
 	) {
-		console.log(req.headers.authorization.split("Bearer ")[1]);
 		idToken = req.headers.authorization.split("Bearer ")[1];
 	} else {
-		console.log("No token found");
-		return res.status(403).json({ message: "Unauthorized" });
+		// No cookie
+		res.status(403).send("Unauthorized");
+		return;
 	}
 
+	// https://github.com/firebase/functions-samples/blob/Node-8/authorized-https-endpoint/functions/index.js
 	try {
-		req.user = await admin.auth().verifyIdToken(idToken);
-		const userHandle = await db
-			.collection("users")
-			.where("userId", "==", req.user.uid)
-			.limit(1)
-			.get();
-
-		req.user.handle = userHandle.docs[0].data().handle;
-		return next();
+		const decodedIdToken = await admin.auth().verifyIdToken(idToken);
+		console.log("ID Token correctly decoded", decodedIdToken);
+		req.user = decodedIdToken;
+		next();
+		return;
 	} catch (err) {
-		console.error("Error verifying token", err);
-		return res.status(403).json({ message: "Error verifying token." });
+		console.error("Error while verifying Firebase ID token:", err);
+		res.status(403).send("Unauthorized");
+		return;
 	}
 };
 
@@ -60,7 +61,7 @@ app.post("/watchlist", FBAuth, async (req, res) => {
 		});
 });
 
-app.delete("/watchlist/:watchlistId", async (req, res) => {
+app.delete("/watchlist/:watchlistId", FBAuth, async (req, res) => {
 	const watchlistId = req.params.watchlistId;
 
 	try {
@@ -79,8 +80,10 @@ app.delete("/watchlist/:watchlistId", async (req, res) => {
 	}
 });
 
-app.get("/watchlist", async (req, res) => {
+app.get("/watchlist", FBAuth, async (req, res) => {
 	console.log("Grabbing all watchlist items");
+	console.log(req.headers);
+	console.log(req.body);
 	return db
 		.collection("watchlist")
 		.get()
@@ -106,7 +109,8 @@ app.get("/watchlist", async (req, res) => {
 
 app.get("/listings", FBAuth, async (req, res) => {
 	const userId = req.user.uid;
-	console.log("Grabbing all listings");
+
+	console.log("Grabbing all listings", userId);
 	return db
 		.collection("listings")
 		.where("userId", "==", userId)
@@ -157,84 +161,7 @@ app.get("/refreshListings", FBAuth, async (req, res) => {
 	}
 });
 
-app.post("/signup", async (req, res) => {
-	const { email, password, handle } = req.body;
-
-	let userId;
-
-	const document = await db.collection("users").doc(handle).get();
-
-	// handle taken - try again
-	if (document.exists) {
-		res.status(400).json({ message: "This email has already been taken" });
-	}
-
-	try {
-		console.log("Attempting to create user", email);
-		const userRecord = await firebase
-			.auth()
-			.createUserWithEmailAndPassword(email, password);
-		console.log("Created user");
-
-		userId = userRecord.user.uid;
-		token = await userRecord.user.getIdToken();
-
-		const credentials = {
-			userId,
-			handle,
-			email,
-			createdAt: new Date().toISOString(),
-		};
-
-		await db.collection("users").doc(handle).set(credentials);
-		console.log("Succesfully added new user", userId);
-		return res
-			.status(201)
-			.json({ message: "Successfully added new user.", token });
-	} catch (err) {
-		console.log(err);
-		if (err.code === "auth/email-already-in-use") {
-			return res.status(400).json({
-				message: "Email is already in use. Please enter a different email",
-			});
-		}
-
-		return res.status(500).json({
-			error: err.code,
-			message: "Error creating new user. Please try again.",
-		});
-	}
-});
-
-app.get("/login", async (req, res) => {
-	const user = {
-		email: req.body.email,
-		password: req.body.password,
-	};
-
-	// validate the input first - also include it into the security rules
-
-	try {
-		console.log("Attempting to login");
-		const data = await firebase
-			.auth()
-			.signInWithEmailAndPassword(user.email, user.password);
-
-		console.log("Signin succesful - Extracting token");
-		// get the token for the certain user
-		const token = await data.user.getIdToken();
-		return res.status(200).json({ token });
-	} catch (err) {
-		console.error(err);
-		// auth/wrong-password
-		// auth/user-not-user
-		return res
-			.status(403)
-			.json({ message: "Incorrect credentials. Please try again." });
-	}
-});
-
-app.get("/logout", async (req, res) => {
+app.post("/logout", async (req, res) => {
 	firebase
 		.auth()
 		.signOut.then(() => {
@@ -364,6 +291,29 @@ exports.deleteAllListings = functions
 		}
 	});
 
+// creates a user on signup
+exports.addUserOnCreate = functions.auth.user().onCreate(async (userRecord) => {
+	console.log("Created user in system. Adding into collection");
+
+	userId = userRecord.user.uid;
+	token = await userRecord.user.getIdToken();
+	console.log(token, userId);
+
+	const credentials = {
+		userId,
+		email,
+		createdAt: new Date().toISOString(),
+	};
+
+	try {
+		await db.collection("users").doc().set(credentials);
+		console.log("Succesfully added new user", userId);
+	} catch (err) {
+		console.error("Error in creating a user document on creation.");
+	}
+});
+
+// deletes a user on delete
 const deleteQueryBatch = (query, resolve, reject) => {
 	query
 		.get()
@@ -434,3 +384,96 @@ exports.api = functions.region("us-central1").https.onRequest(app);
 // 			return;
 // 		}
 // 	});
+
+app.post("/signup", async (req, res) => {
+	const { email, password } = req.body;
+
+	let userId;
+
+	try {
+		const document = await db
+			.collection("users")
+			.where("email", "==", email)
+			.limit(1)
+			.get();
+
+		// handle taken - try again
+		if (document.exists) {
+			res.status(400).json({ message: "This email has already been taken" });
+		}
+	} catch (err) {
+		console.log(err);
+	}
+
+	try {
+		console.log("Attempting to create user", email);
+		const userRecord = await firebase
+			.auth()
+			.createUserWithEmailAndPassword(email, password);
+		console.log("Created user");
+
+		userId = userRecord.user.uid;
+		token = await userRecord.user.getIdToken();
+		console.log(token, userId);
+		const credentials = {
+			userId,
+			email,
+			createdAt: new Date().toISOString(),
+		};
+
+		await db.collection("users").doc().set(credentials);
+		console.log("Succesfully added new user", userId);
+		return res.status(201).json({
+			message: "Successfully added new user.",
+			token,
+		});
+	} catch (err) {
+		console.log(err);
+		if (err.code === "auth/email-already-in-use") {
+			return res.status(400).json({
+				message: "Email is already in use. Please enter a different email",
+			});
+		}
+
+		return res.status(500).json({
+			error: err.code,
+			message: "Error creating new user. Please try again.",
+		});
+	}
+});
+
+app.post("/login", async (req, res) => {
+	const user = {
+		email: req.body.email,
+		password: req.body.password,
+	};
+
+	// validate the input first - also include it into the security rules
+
+	try {
+		console.log("Attempting to login");
+		console.log(user.email, user.password);
+		const data = await firebase
+			.auth()
+			.signInWithEmailAndPassword(user.email, user.password);
+
+		console.log("Signin succesful - Extracting token");
+		// get the token for the certain user
+		const token = await data.user.getIdToken();
+		console.log(
+			"Server firebase has a logged user",
+			firebase.auth().currentUser
+		);
+		console.log(token);
+		res.status(200).json({ token });
+		return;
+	} catch (err) {
+		console.error(err);
+		// auth/wrong-password
+		// auth/user-not-user
+		res
+			.status(403)
+			.json({ message: "Incorrect credentials. Please try again." });
+		return;
+	}
+});

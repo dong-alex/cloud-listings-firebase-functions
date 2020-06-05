@@ -1,11 +1,14 @@
-const admin = require("firebase-admin");
-const firebase = require("firebase");
-const config = require("./config");
-const serviceAccount = require("./serviceAccountKey.json");
+let admin = require("firebase-admin");
+let firebase = require("firebase");
+let config = require("./config");
+let serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
 	credential: admin.credential.cert(serviceAccount),
 	databaseURL: "https://cloud-listings.firebaseio.com",
+	databaseAuthVariableOverride: {
+		uid: "my-service-worker",
+	},
 });
 firebase.initializeApp(config);
 
