@@ -96,6 +96,7 @@ app.get("/watchlist", FBAuth, async (req, res) => {
 				});
 			});
 			res.status(200).json(data);
+			return;
 		})
 		.catch((err) => {
 			console.log(err);
@@ -104,6 +105,7 @@ app.get("/watchlist", FBAuth, async (req, res) => {
 				message:
 					"There was an error grabbing your watchlist. Please try again.",
 			});
+			return;
 		});
 });
 
@@ -111,49 +113,46 @@ app.get("/listings", FBAuth, async (req, res) => {
 	const userId = req.user.uid;
 
 	console.log("Grabbing all listings", userId);
-	return db
-		.collection("listings")
-		.where("userId", "==", userId)
-		.orderBy("postedAt", "desc")
-		.get()
-		.then((documents) => {
-			const data = [];
-			documents.forEach((doc) => {
-				data.push({
-					id: doc.id,
-					...doc.data(),
-				});
-			});
-			res.status(200).json(data);
-		})
-		.catch((err) => {
-			console.log(err);
-			res.status(500).json({
-				error: err.code,
-				message: "There was an error grabbing your listings. Please try again.",
+	try {
+		const documents = await db
+			.collection("listings")
+			.where("userId", "==", userId)
+			.orderBy("postedAt", "desc")
+			.get();
+		const data = [];
+
+		documents.forEach((doc) => {
+			data.push({
+				id: doc.id,
+				...doc.data(),
 			});
 		});
+		res.status(200).json(data);
+		return;
+	} catch (err) {
+		console.log(err);
+		res.status(500).json({
+			error: err.code,
+			message: "There was an error grabbing your listings. Please try again.",
+		});
+		return;
+	}
 });
 
 app.get("/refreshListings", FBAuth, async (req, res) => {
-	const userId = req.user.uid;
-	const urlData = [];
-	db.collection("watchlist")
-		.get()
-		.then((documentSet) => {
-			// if there is nothing in the watchlist collection or no collection - return error
-			if (!documentSet) {
-				res.status(200).send("No watchlist is being used right now.");
-			}
-
-			documentSet.forEach((doc) => {
-				const data = doc.data();
-				urlData.push({ id: doc.id, ...data });
-			});
-		})
-		.catch((err) => console.log("Error", err));
-
 	try {
+		const userId = req.user.uid;
+		const urlData = [];
+		const documentSet = await db.collection("watchlist");
+
+		if (!documentSet) {
+			res.status(200).send("No watchlist is being used right now.");
+		}
+
+		documentSet.forEach((doc) => {
+			const data = doc.data();
+			urlData.push({ id: doc.id, ...data });
+		});
 		const listings = await scrapeListings(urlData, userId);
 		return res.status(200).send(listings);
 	} catch (err) {
@@ -343,6 +342,7 @@ const deleteQueryBatch = (query, resolve, reject) => {
 			process.nextTick(() => {
 				deleteQueryBatch(query, resolve, reject);
 			});
+			return;
 		})
 		.catch(reject);
 };

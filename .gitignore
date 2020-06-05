@@ -71,3 +71,5 @@ serviceAccountKey.json
 .eslintrc.json
 package-lock.json
 config.js
+firestore.indexes.json
+firestore.rules
