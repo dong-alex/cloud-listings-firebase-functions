@@ -1,7 +1,7 @@
 const puppeteer = require("puppeteer");
 const { db } = require("./admin");
 
-exports.scrapeListings = async (watchlist, userId) => {
+const scrapeListings = async (watchlist, userId) => {
 	// grab all the listings based on the url
 	const browser = await puppeteer.launch({
 		headless: true,
@@ -145,6 +145,13 @@ exports.scrapeListings = async (watchlist, userId) => {
 	}
 	/* eslint-enable no-await-in-loop */
 	await browser.close();
-	await batch.commit();
+	try {
+		await batch.commit();
+	} catch (err) {
+		console.log("Error in the batch commit")
+		console.log(err);
+	}
 	return allResults;
 };
+
+module.exports = scrapeListings;

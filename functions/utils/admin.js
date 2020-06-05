@@ -6,10 +6,8 @@ let serviceAccount = require("./serviceAccountKey.json");
 admin.initializeApp({
 	credential: admin.credential.cert(serviceAccount),
 	databaseURL: "https://cloud-listings.firebaseio.com",
-	databaseAuthVariableOverride: {
-		uid: "my-service-worker",
-	},
 });
+
 firebase.initializeApp(config);
 
 let db = admin.firestore();
