@@ -178,8 +178,9 @@ app.post("/logout", async (req, res) => {
 });
 
 // if you add a watchlist item - then automatically query for the front page listings
-exports.fetchListings = functions.firestore
-	.document("watchlist/{watchlistId}")
+exports.fetchListings = functions
+	.runWith({ timeoutSeconds: 60, memory: "1GB" })
+	.firestore.document("watchlist/{watchlistId}")
 	.onCreate(async (snapshot, context) => {
 		const snapData = snapshot.data();
 		const id = context.params.watchlistId;

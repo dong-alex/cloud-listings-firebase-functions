@@ -1,3 +1,7 @@
+if (process.env.FUNCTIONS_EMULATOR) {
+	process.env.GOOGLE_APPLICATION_CREDENTIAL = "./serviceAccountKey.json";
+}
+
 let admin = require("firebase-admin");
 let firebase = require("firebase");
 let config = require("./config");

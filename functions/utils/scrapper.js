@@ -23,6 +23,7 @@ const scrapeListings = async (watchlist, userId) => {
 
 		console.log(`Scraping ${url}`);
 		await page.goto(url);
+		await page.waitFor(4000);
 		let carListings;
 		try {
 			carListings = await page.evaluate(() => {
@@ -102,20 +103,24 @@ const scrapeListings = async (watchlist, userId) => {
 					const location = locationParser(details);
 					const time = timeParser(details);
 
-					results.push({
-						id: listing.getAttribute("data-listing-id"),
-						directUrl: `https://www.kijiji.com${listing
-							.querySelector("a.title")
-							.getAttribute("href")}`,
-						price: textContent(listing.querySelector("div.price")),
-						title: textContent(listing.querySelector("a.title")),
-						distance: textContent(listing.querySelector("div.distance")),
-						location: location,
-						postedAt: time,
-						imageUrl: validImage,
-						description: textContent(listing.querySelector("div.description")),
-						details: textContent(listing.querySelector("div.details")),
-					});
+					if (time.getTime() > new Date("2000-01-01").getTime()) {
+						results.push({
+							id: listing.getAttribute("data-listing-id"),
+							directUrl: `https://www.kijiji.com${listing
+								.querySelector("a.title")
+								.getAttribute("href")}`,
+							price: textContent(listing.querySelector("div.price")),
+							title: textContent(listing.querySelector("a.title")),
+							distance: textContent(listing.querySelector("div.distance")),
+							location: location,
+							postedAt: time,
+							imageUrl: validImage,
+							description: textContent(
+								listing.querySelector("div.description")
+							),
+							details: textContent(listing.querySelector("div.details")),
+						});
+					}
 				});
 				return results;
 			});
@@ -148,7 +153,7 @@ const scrapeListings = async (watchlist, userId) => {
 	try {
 		await batch.commit();
 	} catch (err) {
-		console.log("Error in the batch commit")
+		console.log("Error in the batch commit");
 		console.log(err);
 	}
 	return allResults;
